@@ -12,10 +12,13 @@
 #
 # The kmods still come from downloads.openwrt.org. A kmod installs only against
 # the kernel it was built for, identified by a hash of the kernel config (the
-# vermagic). The build starts from the release's own config.buildinfo, and a
-# device adds a DTS and an image recipe without touching the kernel config, so
-# the hash matches the release. That is checked below rather than assumed: a
-# mismatch builds fine and then fails every kmod at `make image`.
+# vermagic). So the tree is set up the way the release's buildbot set it up:
+# its config.buildinfo, and its feeds at the commits in feeds.buildinfo. Both
+# matter, because every selected kmod merges its own symbols into the kernel
+# config: turning off ALL_KMODS, or leaving out a feed's kmods, changes the
+# hash. A device adds a DTS and an image recipe and touches neither. The result
+# is checked below rather than assumed: a mismatch builds fine and then fails
+# every kmod at `make image`.
 #
 # Linux, on a case-sensitive filesystem.
 
@@ -43,9 +46,9 @@ cd "${SRC}"
 [ "$(git describe --tags --exact-match 2>/dev/null)" = "v${VERSION}" ] \
   || die "${SRC} is not a checkout of v${VERSION}"
 
-# Back to the pristine tag, keeping dl/ and the build dirs.
+# Back to the pristine tag, keeping dl/, the feeds and the build dirs.
 git checkout -q -- .
-git clean -fdq -- target package
+git clean -fdq -e /package/feeds -- target package
 
 devices=""
 for dir in "${ROOT}"/devices/*/; do
@@ -55,6 +58,11 @@ for dir in "${ROOT}"/devices/*/; do
   devices="${devices} $(sed -n 's/^+define Device\/\(.*\)$/\1/p' "${dir}openwrt.patch")"
 done
 [ -n "${devices// }" ] || die "no devices found"
+
+log "Installing the release's feeds"
+curl -fsSL -o feeds.conf "${RELEASE}/feeds.buildinfo"
+./scripts/feeds update -a >/dev/null
+./scripts/feeds install -a >/dev/null
 
 log "Configuring from the release's config.buildinfo"
 curl -fsSL -o .config "${RELEASE}/config.buildinfo"
@@ -71,9 +79,8 @@ sed -i '/^CONFIG_TARGET_DEVICE_/d' .config
   echo "# CONFIG_IB_STANDALONE is not set"
   echo "# CONFIG_SDK is not set"
   echo "# CONFIG_MAKE_TOOLCHAIN is not set"
-  echo "# CONFIG_ALL_KMODS is not set"
+  # Not ALL_KMODS or COLLECT_KERNEL_DEBUG: see the vermagic note at the top.
   echo "# CONFIG_ALL_NONSHARED is not set"
-  echo "# CONFIG_COLLECT_KERNEL_DEBUG is not set"
 } >> .config
 make defconfig >/dev/null
 
@@ -82,16 +89,25 @@ for d in ${devices}; do
     || die "device ${d} did not survive defconfig; is its recipe in the patch valid?"
 done
 
-log "Building"
+log "Building the toolchain and the kernel"
 make download -j8 >/dev/null
-make -j"$(nproc)" || make -j1 V=s
+make -j"$(nproc)" tools/install toolchain/install
+make -j"$(nproc)" target/linux/compile
 
+# Checked as soon as the kernel is built, since everything after this is
+# the long part and would be wasted on a kernel no release kmod will load into.
 vermagic="$(cat build_dir/target-*/linux-${TARGET}_${SUBTARGET}/linux-*/.vermagic)"
 kmods="$(curl -fsSL "${RELEASE}/kmods/" | sed -n 's/.*href="\([0-9][^"/]*\)\/".*/\1/p' | head -n1)"
 case "${kmods}" in
   *"-${vermagic}") log "vermagic ${vermagic} matches the release's kmods" ;;
   *) die "vermagic ${vermagic} does not match the release's kmods (${kmods})" ;;
 esac
+
+log "Building"
+# A kmod from a feed that fails to compile costs nothing here, since its
+# symbols reached the kernel config when it was selected; the release's kmods
+# are what get installed.
+make -j"$(nproc)" IGNORE_ERRORS=m || make -j1 V=s IGNORE_ERRORS=m
 
 bin="bin/targets/${TARGET}/${SUBTARGET}"
 cp "${bin}"/openwrt-imagebuilder-*.tar.zst "${bin}"/*-initramfs-kernel.bin \
