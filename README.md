@@ -23,7 +23,7 @@ So anything that fetches an official ImageBuilder and checks it against
 `sha256sums` only needs a different base URL:
 
 ```
-https://github.com/parkeze/openwrt-devices/releases/download/24.10.0-1/
+https://github.com/parkeze/openwrt-devices/releases/download/24.10.0-2/
 ```
 
 The ImageBuilder is the release's own tree with these devices added. Its
@@ -56,7 +56,8 @@ vendor firmware is OpenWrt underneath, and `/sys/firmware/fdt`, `/proc/mtd` and
 ## RAK7268CV2
 
 A RAK636 module: MT7628AN, 128MB RAM, 32MB W25Q256 SPI NOR, SX1302 LoRa
-concentrator on SPI CS1, Quectel EG95 LTE on USB, SD card slot on the ethernet
+concentrator on SPI CS1 (`/dev/spidev0.1`, reset on GPIO 11, active high;
+the MT7628 SPI controller is half-duplex only), Quectel EG95 LTE on USB, SD card slot on the ethernet
 PHY's P1-P4 pads (so one ethernet port).
 
 Flash map, identical to the vendor's so the bootloader, calibration and RAK's
@@ -80,6 +81,19 @@ The stock Ralink U-Boot has a TFTP menu on the serial console (57600 8N1,
 - **2: Load system code then write to Flash via TFTP** writes a
   `squashfs-sysupgrade.bin` to the firmware partition.
 - Never 7 or 9: those rewrite the bootloader.
+
+U-Boot's network needs a host that accepts its MAC: the stock environment has
+`ethaddr=03:17:73:AB:CD:EF`, a multicast address that switches, Wi-Fi and
+macOS all drop, and `ethaddr` cannot be changed from the prompt. A Linux or
+Windows machine on a direct cable works. Otherwise `loadb` takes the image over
+the serial console (Kermit, ~3.4 KB/s at 57600 with long packets), and
+installing from the running stock firmware over the network needs neither:
+
+```sh
+wget -O /tmp/fw.bin http://<host>/openwrt-...-squashfs-sysupgrade.bin
+sha256sum /tmp/fw.bin
+mtd -r write /tmp/fw.bin firmware
+```
 
 From a running OpenWrt, `sysupgrade` takes the same `squashfs-sysupgrade.bin`.
 

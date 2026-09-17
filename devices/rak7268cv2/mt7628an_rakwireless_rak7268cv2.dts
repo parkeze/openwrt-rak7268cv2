@@ -163,9 +163,14 @@
 		};
 	};
 
-	/* SX1302 LoRa concentrator. */
+	/*
+	 * SX1302 LoRa concentrator, driven from userspace by Semtech's HAL.
+	 * spidev binds "semtech,sx1301" but not a bare "linux,spidev". The
+	 * controller is half-duplex, so the HAL must not use full-duplex
+	 * transfers.
+	 */
 	spidev@1 {
-		compatible = "linux,spidev";
+		compatible = "semtech,sx1301";
 		reg = <1>;
 		spi-max-frequency = <40000000>;
 	};
