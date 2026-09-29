@@ -1,11 +1,10 @@
-# openwrt-devices
+# openwrt-rak7268cv2
 
-OpenWrt device support for hardware the release does not cover yet, and the
-ImageBuilders built with it.
+OpenWrt device support for the RAKwireless RAK7268CV2 (WisGate Edge Lite 2 V2),
+and the ImageBuilders built with it. OpenWrt 24.10.0, `ramips/mt76x8`, profile
+`rakwireless_rak7268cv2`.
 
-| Device | OpenWrt | Target | Profile |
-|---|---|---|---|
-| RAKwireless RAK7268CV2 (WisGate Edge Lite 2 V2) | 24.10.0 | ramips/mt76x8 | `rakwireless_rak7268cv2` |
+Built from [openwrt-device-template](https://github.com/parkeze/openwrt-device-template).
 
 ## Using a release
 
@@ -23,7 +22,7 @@ So anything that fetches an official ImageBuilder and checks it against
 `sha256sums` only needs a different base URL:
 
 ```
-https://github.com/parkeze/openwrt-devices/releases/download/24.10.0-2/
+https://github.com/parkeze/openwrt-rak7268cv2/releases/download/24.10.0-2/
 ```
 
 The ImageBuilder is the release's own tree with these devices added. Its
@@ -41,17 +40,6 @@ Linux, on a case-sensitive filesystem, with
 [OpenWrt's build dependencies](https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem).
 The first build compiles the toolchain and takes a couple of hours; CI does it
 on every push and publishes on a tag.
-
-## Adding a device
-
-`devices/<board>/` holds the DTS and a patch against the OpenWrt tree for
-everything else: the image recipe in `target/linux/<target>/image/`, and
-whatever `board.d` network, LED and `uboot-envtools` entries the board needs.
-`build.sh` picks the device name out of the patch's `define Device/...`.
-
-Write the DTS from the vendor's running firmware, not from a datasheet: most
-vendor firmware is OpenWrt underneath, and `/sys/firmware/fdt`, `/proc/mtd` and
-`/sys/kernel/debug/gpio` give the flash map and the wiring directly.
 
 ## RAK7268CV2
 
