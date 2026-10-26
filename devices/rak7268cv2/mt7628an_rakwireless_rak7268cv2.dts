@@ -5,6 +5,17 @@
 / {
 	compatible = "rakwireless,rak7268cv2", "mediatek,mt7628an-soc";
 	model = "RAKwireless RAK7268CV2";
+
+	gpio-export {
+		compatible = "gpio-export";
+
+		/* Quectel EG95 reset: pulse high, the vendor firmware for 1 s. */
+		modem-reset {
+			gpio-export,name = "modem-reset";
+			gpio-export,output = <0>;
+			gpios = <&gpio 42 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };
 
 &spi0 {
